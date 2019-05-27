@@ -4,6 +4,8 @@ apply plugin: 'kotlin-android'
 
 apply plugin: 'kotlin-android-extensions'
 
+apply plugin: 'kotlin-kapt'
+
 android {
     compileSdkVersion 28
     defaultConfig {
@@ -47,6 +49,12 @@ dependencies {
     implementation project(':exoplayer-library-hls')
     implementation project(':exoplayer-extension-ffmpeg')
 
+    implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.16'
+
+    implementation("com.github.bumptech.glide:glide:4.8.0") {
+        exclude group: "com.android.support"
+    }
+    kapt "com.github.bumptech.glide:compiler:4.9.0"
 
     // For youtube Url Extractor
     implementation 'com.github.HaarigerHarald:android-youtubeExtractor:v1.7.0'
@@ -54,6 +62,7 @@ dependencies {
     implementation "com.squareup.retrofit2:retrofit:2.5.0"
     implementation "com.squareup.retrofit2:converter-moshi:2.5.0"
     implementation "com.squareup.okhttp3:logging-interceptor:3.13.1"
+    implementation 'com.squareup.retrofit2:converter-moshi:2.5.0'
 
     implementation 'com.android.support:multidex:1.0.3'
 

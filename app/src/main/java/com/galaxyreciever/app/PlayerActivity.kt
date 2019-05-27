@@ -179,7 +179,7 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                     }
                 }
             } else {
-                listPosition = dataSnapshot.child(LIST_POSITION).value?.toString()?.toInt()
+                val listPositionValue = dataSnapshot.child(LIST_POSITION).value?.toString()?.toInt()
                 val playValue = dataSnapshot.child(PLAY).value?.toString()
                 val seekUpValue = dataSnapshot.child(SEEK_UP).value?.toString()
                 val seekDownValue = dataSnapshot.child(SEEK_DOWN).value?.toString()
@@ -187,6 +187,7 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                 val soundUpValue = dataSnapshot.child(SOUND_UP).value?.toString()
                 val soundDownValue = dataSnapshot.child(Sound_Down).value?.toString()
                 var url: String? = null
+
                 @SuppressLint("StaticFieldLeak") val mExtractor =
                     object : YouTubeExtractor(this@PlayerActivity) {
                         override fun onExtractionComplete(
@@ -196,7 +197,6 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
                         }
                     }
-
 
                 if (youtubeLinks.size == 0) {
                     dataSnapshot.child(URL_LIST).ref.addValueEventListener(object : ValueEventListener {
@@ -211,158 +211,169 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                                 youtubeLinks.add(it.value as String)
                             }
 
+                            if (listPosition != null && youtubeLinks.size > 0) {
+                                mExtractor.extract(youtubeLinks[listPosition!!], true, true)
+                                val sparseArray = mExtractor.get()
+
+                                if (sparseArray != null) {
+                                    // Initialize an array of colors
+                                    val item = sparseArray.valueAt(0) as YtFile
+                                    url = item.url
 
 
-                            mExtractor.extract(youtubeLinks[listPosition!!], true, true)
-                            val sparseArray = mExtractor.get()
-
-                            if (sparseArray != null) {
-                                // Initialize an array of colors
-                                val item = sparseArray.valueAt(0) as YtFile
-                                url = item.url
-
-
-                                if (playValue != null && playValue == "1") {
-                                    if (mUrl.equals(url)) {
-                                        if (player?.playWhenReady != true) {
-                                            if (positionBeforePause != null) {
-                                                player?.playWhenReady = true
-                                                player?.seekTo(positionBeforePause!!)
-                                            } else {
-                                                mUrl = url
-                                                play(mUrl!!)
+                                    if (playValue != null && playValue == "1") {
+                                        if (mUrl.equals(url)) {
+                                            if (player?.playWhenReady != true) {
+                                                if (positionBeforePause != null) {
+                                                    player?.playWhenReady = true
+                                                    player?.seekTo(positionBeforePause!!)
+                                                } else {
+                                                    mUrl = url
+                                                    play(mUrl!!)
+                                                }
                                             }
+                                        } else {
+                                            //url changed
+                                            positionBeforePause = null
+                                            mUrl = url
+                                            play(mUrl!!)
                                         }
+
+
+                                    } else if (playValue != null && playValue == "0") {
+                                        pause()
                                     } else {
-                                        //url changed
-                                        positionBeforePause = null
-                                        mUrl = url
-                                        play(mUrl!!)
+
+                                    }
+
+                                    if (player != null) {
+                                        if (seekValue != null && seekValue != "") {
+                                            player?.seekTo(seekValue.toLong())
+                                            tvRef.child(SEEK).setValue("")
+                                        }
+
+                                        if (seekUpValue != null && seekUpValue != "") {
+                                            player?.seekTo(player?.currentPosition!!.plus(10000))
+                                            tvRef.child(SEEK_UP).setValue("")
+                                        }
+
+                                        if (seekDownValue != null && seekDownValue != "") {
+                                            player?.seekTo(player?.currentPosition!!.minus(10000))
+                                            tvRef.child(SEEK_DOWN).setValue("")
+                                        }
                                     }
 
 
-                                } else if (playValue != null && playValue == "0") {
-                                    pause()
+
+                                    if (player != null) {
+
+                                        if (soundDownValue != null && soundDownValue != "") {
+                                            //Down
+                                            tvRef.child(Sound_Down).setValue("")
+                                            audioManager.adjustVolume(
+                                                AudioManager.ADJUST_LOWER,
+                                                AudioManager.FLAG_PLAY_SOUND
+                                            )
+                                            audioManager.adjustStreamVolume(
+                                                AudioManager.STREAM_MUSIC,
+                                                AudioManager.ADJUST_SAME,
+                                                AudioManager.FLAG_SHOW_UI
+                                            );
+                                        }
+
+                                        if (soundUpValue != null && soundUpValue != "") {
+                                            //Up
+                                            tvRef.child(SOUND_UP).setValue("")
+                                            audioManager.adjustVolume(
+                                                AudioManager.ADJUST_RAISE,
+                                                AudioManager.FLAG_PLAY_SOUND
+                                            )
+                                            audioManager.adjustStreamVolume(
+                                                AudioManager.STREAM_MUSIC,
+                                                AudioManager.ADJUST_SAME,
+                                                AudioManager.FLAG_SHOW_UI
+                                            );
+                                        }
+                                    }
                                 } else {
-
+                                    toast("Error Casting this content")
                                 }
-
-                                if (player != null) {
-                                    if (seekValue != null && seekValue != "") {
-                                        player?.seekTo(seekValue.toLong())
-                                        tvRef.child(SEEK).setValue("")
-                                    }
-
-                                    if (seekUpValue != null && seekUpValue != "") {
-                                        player?.seekTo(player?.currentPosition!!.plus(10000))
-                                        tvRef.child(SEEK_UP).setValue("")
-                                    }
-
-                                    if (seekDownValue != null && seekDownValue != "") {
-                                        player?.seekTo(player?.currentPosition!!.minus(10000))
-                                        tvRef.child(SEEK_DOWN).setValue("")
-                                    }
-                                }
-
-
-
-                                if (player != null) {
-
-                                    if (soundDownValue != null && soundDownValue != "") {
-                                        //Down
-                                        tvRef.child(Sound_Down).setValue("")
-                                        audioManager.adjustVolume(
-                                            AudioManager.ADJUST_LOWER,
-                                            AudioManager.FLAG_PLAY_SOUND
-                                        )
-                                        audioManager.adjustStreamVolume(
-                                            AudioManager.STREAM_MUSIC,
-                                            AudioManager.ADJUST_SAME,
-                                            AudioManager.FLAG_SHOW_UI
-                                        );
-                                    }
-
-                                    if (soundUpValue != null && soundUpValue != "") {
-                                        //Up
-                                        tvRef.child(SOUND_UP).setValue("")
-                                        audioManager.adjustVolume(
-                                            AudioManager.ADJUST_RAISE,
-                                            AudioManager.FLAG_PLAY_SOUND
-                                        )
-                                        audioManager.adjustStreamVolume(
-                                            AudioManager.STREAM_MUSIC,
-                                            AudioManager.ADJUST_SAME,
-                                            AudioManager.FLAG_SHOW_UI
-                                        );
-                                    }
-                                }
-                            } else {
-                                toast("Error Casting this content")
                             }
                         }
                     })
-
-
                 } else {
-                    if (playValue != null && playValue == "1") {
-                        if (player?.playWhenReady != true) {
-                            if (positionBeforePause != null) {
-                                player?.playWhenReady = true
-                                player?.seekTo(positionBeforePause!!)
+                    if (listPosition == listPositionValue) {
+
+                        if (playValue != null && playValue == "1") {
+                            if (player?.playWhenReady != true) {
+                                if (positionBeforePause != null) {
+                                    player?.playWhenReady = true
+                                    player?.seekTo(positionBeforePause!!)
+                                }
+                            }
+                        } else if (playValue != null && playValue == "0") {
+                            pause()
+                        } else {
+
+                        }
+                        if (player != null) {
+                            if (seekValue != null && seekValue != "") {
+                                player?.seekTo(seekValue.toLong())
+                                tvRef.child(SEEK).setValue("")
+                            }
+
+                            if (seekUpValue != null && seekUpValue != "") {
+                                player?.seekTo(player?.currentPosition!!.plus(10000))
+                                tvRef.child(SEEK_UP).setValue("")
+                            }
+
+                            if (seekDownValue != null && seekDownValue != "") {
+                                player?.seekTo(player?.currentPosition!!.minus(10000))
+                                tvRef.child(SEEK_DOWN).setValue("")
                             }
                         }
-                    } else if (playValue != null && playValue == "0") {
-                        pause()
+
+                        if (player != null) {
+
+                            if (soundDownValue != null && soundDownValue != "") {
+                                //Down
+                                tvRef.child(Sound_Down).setValue("")
+                                audioManager.adjustVolume(
+                                    AudioManager.ADJUST_LOWER,
+                                    AudioManager.FLAG_PLAY_SOUND
+                                )
+                                audioManager.adjustStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                    AudioManager.ADJUST_SAME,
+                                    AudioManager.FLAG_SHOW_UI
+                                );
+                            }
+
+                            if (soundUpValue != null && soundUpValue != "") {
+                                //Up
+                                tvRef.child(SOUND_UP).setValue("")
+                                audioManager.adjustVolume(
+                                    AudioManager.ADJUST_RAISE,
+                                    AudioManager.FLAG_PLAY_SOUND
+                                )
+                                audioManager.adjustStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                    AudioManager.ADJUST_SAME,
+                                    AudioManager.FLAG_SHOW_UI
+                                );
+                            }
+                        }
                     } else {
-
-                    }
-                    if (player != null) {
-                        if (seekValue != null && seekValue != "") {
-                            player?.seekTo(seekValue.toLong())
-                            tvRef.child(SEEK).setValue("")
-                        }
-
-                        if (seekUpValue != null && seekUpValue != "") {
-                            player?.seekTo(player?.currentPosition!!.plus(10000))
-                            tvRef.child(SEEK_UP).setValue("")
-                        }
-
-                        if (seekDownValue != null && seekDownValue != "") {
-                            player?.seekTo(player?.currentPosition!!.minus(10000))
-                            tvRef.child(SEEK_DOWN).setValue("")
-                        }
-                    }
-
-
-
-                    if (player != null) {
-
-                        if (soundDownValue != null && soundDownValue != "") {
-                            //Down
-                            tvRef.child(Sound_Down).setValue("")
-                            audioManager.adjustVolume(
-                                AudioManager.ADJUST_LOWER,
-                                AudioManager.FLAG_PLAY_SOUND
-                            )
-                            audioManager.adjustStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_SAME,
-                                AudioManager.FLAG_SHOW_UI
-                            );
-                        }
-
-                        if (soundUpValue != null && soundUpValue != "") {
-                            //Up
-                            tvRef.child(SOUND_UP).setValue("")
-                            audioManager.adjustVolume(
-                                AudioManager.ADJUST_RAISE,
-                                AudioManager.FLAG_PLAY_SOUND
-                            )
-                            audioManager.adjustStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_SAME,
-                                AudioManager.FLAG_SHOW_UI
-                            );
+                        if (listPositionValue != null) {
+                            listPosition = listPositionValue
+                            if (listPosition!! < youtubeLinks.size) {
+                                tvRef.child(LIST_POSITION).setValue(listPosition)
+                                positionBeforePause = null
+                                saveVideoImageToFireBase(youtubeLinks[listPosition!!])
+                                extractYoutubeUrl(youtubeLinks[listPosition!!])
+                            } else {
+                                finish()
+                            }
                         }
                     }
                 }
@@ -425,7 +436,25 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
     override fun onPause() {
         super.onPause()
-        release()
+        if (player != null) {
+            player?.playWhenReady = false
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (player != null) {
+            player?.playWhenReady = false
+        }
+    }
+
+    override fun onResume() {
+        Log.d(TAG, "onResume() was called")
+        if (player != null) {
+            player?.playWhenReady = true
+        }
+
+        super.onResume()
     }
 
     fun pause() {
@@ -469,13 +498,6 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
             Player.STATE_READY -> {
             }
             Player.STATE_ENDED -> {
-//                tvRef.child(PLAY).setValue(STOP_ACTION)
-//                tvRef.child(URL).setValue("")
-//                tvRef.child(SEEK).setValue("")
-//                tvRef.child(SEEK_UP).setValue("")
-//                tvRef.child(SEEK_DOWN).setValue("")
-//                tvRef.child(CONNECTED).setValue(DISCONNECTED_ACTION)
-
                 if (playType == "single") {
                     finish()
                 } else {
@@ -525,6 +547,19 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
     override fun onPlayerError(error: ExoPlaybackException?) {
         toast(error?.message!!)
+        if (playType == "single") {
+            finish()
+        } else {
+            listPosition = listPosition!! + 1
+            if (listPosition!! < youtubeLinks.size) {
+                tvRef.child(LIST_POSITION).setValue(listPosition)
+                positionBeforePause = null
+                saveVideoImageToFireBase(youtubeLinks[listPosition!!])
+                extractYoutubeUrl(youtubeLinks[listPosition!!])
+            } else {
+                finish()
+            }
+        }
     }
 
 }

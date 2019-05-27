@@ -7,57 +7,93 @@
     android:layout_height="match_parent"
     tools:context="com.galaxyreciever.app.ConnectionActivity">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/connectionViews"
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <pl.droidsonroids.gif.GifImageView
+                android:id="@+id/logo"
+                android:layout_width="500dp"
+                android:layout_height="450dp"
+                android:src="@drawable/gif"
+                app:layout_constraintBottom_toTopOf="@id/messageTv"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_chainStyle="packed" />
+
+
+            <TextView
+                android:id="@+id/messageTv"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:padding="8dp"
+                android:text="Type code below to connect to this TV device."
+                android:textAppearance="?attr/textAppearanceHeadline5"
+                android:textColor="@android:color/white"
+                app:layout_constraintBottom_toTopOf="@id/codeTv"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/logo" />
+
+            <TextView
+                android:id="@+id/codeTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:padding="8dp"
+                android:text=""
+                android:textAppearance="?attr/textAppearanceHeadline3"
+                android:textColor="@color/colorText"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toTopOf="@id/barCodeImage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/messageTv" />
+
+            <ImageView
+                android:id="@+id/barCodeImage"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_marginBottom="18dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/codeTv" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+
+    <FrameLayout
+        android:id="@+id/splashView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:visibility="visible"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
-            android:id="@+id/logo"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
+            android:id="@+id/background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:src="@drawable/logo"
-            app:layout_constraintBottom_toTopOf="@id/messageTv"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_chainStyle="packed" />
+            android:src="@drawable/bg1" />
 
         <TextView
-            android:id="@+id/messageTv"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:padding="8dp"
-            android:text="Type code below to connect to this TV device."
-            android:textAppearance="?attr/textAppearanceHeadline5"
-            android:textColor="@android:color/white"
-            app:layout_constraintBottom_toTopOf="@id/codeTv"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/logo" />
-
-        <TextView
-            android:id="@+id/codeTv"
+            android:id="@+id/timeTv"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:padding="8dp"
-            android:text="Amh245tfD464"
-            android:textStyle="bold"
-            android:textAppearance="?attr/textAppearanceHeadline3"
-            android:textColor="@color/colorText"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/messageTv" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            android:layout_gravity="bottom|right"
+            android:layout_margin="64dp"
+            android:textColor="@android:color/white"
+            android:textAppearance="?attr/textAppearanceHeadline5" />
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
