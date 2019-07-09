@@ -6,18 +6,16 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
-import android.provider.Settings
-import android.text.format.DateFormat
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.Animation
-import android.view.animation.RotateAnimation
 import android.widget.Toast
-import androidx.core.os.postDelayed
 import com.blankj.utilcode.util.DeviceUtils
 import com.bumptech.glide.Glide
+import com.bumptech.glide.Priority
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.video.VideoListener
 import com.google.firebase.database.*
@@ -79,7 +77,7 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                     if (clicked && splashView.visibility == View.GONE) {
                         manageSplashWindow()
                     }
-                }else{
+                } else {
                     firstLoop = false
                 }
             }
@@ -97,13 +95,19 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
     private fun manageSplashWindow() {
         splashView.visibility = View.VISIBLE
         clicked = false
-        val mClockHandler = Handler(GalaxyApplication.instance.getMainLooper())
+        val mClockHandler = Handler(GalaxyApplication.instance.mainLooper)
         object : Runnable {
             override fun run() {
-                val formatter = SimpleDateFormat("yyyy-MM-dd hh:mm:ss a")
+                val dateFormatter = SimpleDateFormat("dd MMMM yyyy")
+                val timeFormatter = SimpleDateFormat("HH:mm")
                 val date = Date(System.currentTimeMillis())
-                val dateString = formatter.format(date)
-                timeTv.text = dateString
+                val dateString = dateFormatter.format(date)
+                val timeString = timeFormatter.format(date)
+                timeTv.text = timeString
+                dateTv.text = dateString
+
+
+
                 mClockHandler.postDelayed(this, 1000)
             }
         }.run()
@@ -114,10 +118,12 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
         images.add(R.drawable.bg2)
         images.add(R.drawable.bg3)
         images.add(R.drawable.bg4)
-        val mImagesHandler = Handler(GalaxyApplication.instance.getMainLooper())
+        val mImagesHandler = Handler(GalaxyApplication.instance.mainLooper)
         object : Runnable {
             override fun run() {
-                background.setImageResource(images[index])
+
+
+                Glide.with(this@ConnectionActivity).load(images[index]).into(background)
                 index++
                 if (index >= 4)
                     index = 0

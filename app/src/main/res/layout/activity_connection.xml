@@ -37,10 +37,11 @@
                 android:text="Type code below to connect to this TV device."
                 android:textAppearance="?attr/textAppearanceHeadline5"
                 android:textColor="@android:color/white"
-                app:layout_constraintBottom_toTopOf="@id/codeTv"
+                android:layout_marginBottom="64dp"
+                app:layout_constraintBottom_toBottomOf="@id/logo"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/logo" />
+                />
 
             <TextView
                 android:id="@+id/codeTv"
@@ -77,7 +78,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        android:background="@android:color/black">
 
         <ImageView
             android:id="@+id/background"
@@ -86,14 +88,31 @@
             android:scaleType="centerCrop"
             android:src="@drawable/bg1" />
 
-        <TextView
-            android:id="@+id/timeTv"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:layout_gravity="bottom|right"
             android:layout_margin="64dp"
-            android:textColor="@android:color/white"
-            android:textAppearance="?attr/textAppearanceHeadline5" />
+            >
+            <TextView
+                android:id="@+id/timeTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textAppearance="?attr/textAppearanceHeadline3" />
+
+            <TextView
+                android:id="@+id/dateTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:textAppearance="?attr/textAppearanceHeadline5" />
+        </LinearLayout>
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

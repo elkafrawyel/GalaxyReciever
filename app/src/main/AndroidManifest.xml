@@ -20,7 +20,8 @@
             android:name=".PlayerActivity"
             android:screenOrientation="landscape" />
         <activity
-            android:name=".ConnectionActivity">
+            android:name=".ConnectionActivity"
+            android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
