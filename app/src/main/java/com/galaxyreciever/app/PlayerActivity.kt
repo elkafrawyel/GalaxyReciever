@@ -27,15 +27,21 @@ import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.video.VideoListener
 import com.google.firebase.database.*
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.YouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.utils.YouTubePlayerTracker
 import kotlinx.android.synthetic.main.activity_connection.parentView
 import kotlinx.android.synthetic.main.activity_player.*
 
-class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener {
+class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener, YouTubePlayerListener {
+
 
     var BANDWIDTH = DefaultBandwidthMeter()
     var player: SimpleExoPlayer? = null
     lateinit var tvRef: DatabaseReference
-    var positionBeforePause: Long? = null
+    var positionBeforePauseExo: Long? = null
+    var positionBeforePauseYoutube: Float? = null
     var mUrl: String? = null
     lateinit var valueListener: ValueEventListener
     lateinit var audioManager: AudioManager
@@ -43,6 +49,10 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
     var listPosition: Int? = 0
     var playType: String? = null
 
+    var isExo = true
+
+    var mYouTubePlayer: YouTubePlayer? = null
+    var mYouTubePlayerTracker: YouTubePlayerTracker? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
@@ -66,6 +76,8 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
         }
 
         tvRef.addValueEventListener(valueListener)
+
+        setUpYoutubePlayer()
     }
 
     override fun onStart() {
@@ -106,20 +118,39 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                         //there was running video before not first time
                         //but same video
                         if (mUrl == urlValue) {
-                            if (player?.playWhenReady != true) {
-                                if (positionBeforePause != null) {
-                                    player?.playWhenReady = true
-                                    player?.seekTo(positionBeforePause!!)
-                                } else {
-                                    mUrl = urlValue
-                                    play(mUrl!!)
+                            if (isExo) {
+                                if (player?.playWhenReady != true) {
+                                    if (positionBeforePauseExo != null) {
+                                        player?.playWhenReady = true
+                                        player?.seekTo(positionBeforePauseExo!!)
+                                    } else {
+                                        mUrl = urlValue
+
+                                        //extract youtube link and try it first then play the original one
+                                        extractYoutubeLink(mUrl!!)
+
+                                    }
+                                }
+                            } else {
+                                if (mYouTubePlayerTracker?.state != PlayerConstants.PlayerState.PLAYING) {
+                                    if (positionBeforePauseYoutube != null) {
+                                        mYouTubePlayer?.play()
+                                        mYouTubePlayer?.seekTo(positionBeforePauseYoutube!!)
+                                    } else {
+                                        mUrl = urlValue
+
+                                        //run directly on youtube player
+                                        playWithYoutube(mUrl!!)
+
+                                    }
                                 }
                             }
+
                         } else {
-                            //url changed
-                            positionBeforePause = null
+                            //url changed run on exo first
+                            positionBeforePauseExo = null
                             mUrl = urlValue
-                            play(mUrl!!)
+                            extractYoutubeLink(mUrl!!)
                         }
 
                     } else if (playValue != null && playValue == "0") {
@@ -132,50 +163,69 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                     val seekDownValue = dataSnapshot.child(SEEK_DOWN).value?.toString()
                     val seekValue = dataSnapshot.child(SEEK).value?.toString()
 
-                    if (player != null) {
-                        if (seekValue != null && seekValue != "") {
-                            player?.seekTo(seekValue.toLong())
-                            tvRef.child(SEEK).setValue("")
+                    if (isExo) {
+                        if (player != null) {
+                            if (seekValue != null && seekValue != "") {
+                                player?.seekTo(seekValue.toLong())
+                                tvRef.child(SEEK).setValue("")
+                            }
+
+                            if (seekUpValue != null && seekUpValue != "") {
+                                player?.seekTo(player?.currentPosition!!.plus(10000))
+                                tvRef.child(SEEK_UP).setValue("")
+                            }
+
+                            if (seekDownValue != null && seekDownValue != "") {
+                                player?.seekTo(player?.currentPosition!!.minus(10000))
+                                tvRef.child(SEEK_DOWN).setValue("")
+                            }
                         }
 
-                        if (seekUpValue != null && seekUpValue != "") {
-                            player?.seekTo(player?.currentPosition!!.plus(10000))
-                            tvRef.child(SEEK_UP).setValue("")
+                    } else {
+                        if (mYouTubePlayer != null) {
+                            if (seekValue != null && seekValue != "") {
+                                // 0 is default till add youtube player on client app
+                                mYouTubePlayer?.seekTo(seekValue.toFloat())
+                                tvRef.child(SEEK).setValue("")
+                            }
+
+                            if (seekUpValue != null && seekUpValue != "") {
+                                mYouTubePlayer?.seekTo(mYouTubePlayerTracker!!.currentSecond.plus(10))
+                                tvRef.child(SEEK_UP).setValue("")
+                            }
+
+                            if (seekDownValue != null && seekDownValue != "") {
+                                mYouTubePlayer?.seekTo(mYouTubePlayerTracker!!.currentSecond.minus(10))
+                                tvRef.child(SEEK_DOWN).setValue("")
+                            }
                         }
 
-                        if (seekDownValue != null && seekDownValue != "") {
-                            player?.seekTo(player?.currentPosition!!.minus(10000))
-                            tvRef.child(SEEK_DOWN).setValue("")
-                        }
                     }
 
                     val soundUpValue = dataSnapshot.child(SOUND_UP).value?.toString()
                     val soundDownValue = dataSnapshot.child(Sound_Down).value?.toString()
 
+                    //NO Need here for a player
+                    if (soundDownValue != null && soundDownValue != "") {
+                        //Down
+                        tvRef.child(Sound_Down).setValue("")
+                        audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_PLAY_SOUND)
+                        audioManager.adjustStreamVolume(
+                            AudioManager.STREAM_MUSIC,
+                            AudioManager.ADJUST_SAME,
+                            AudioManager.FLAG_SHOW_UI
+                        )
+                    }
 
-                    if (player != null) {
-
-                        if (soundDownValue != null && soundDownValue != "") {
-                            //Down
-                            tvRef.child(Sound_Down).setValue("")
-                            audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_PLAY_SOUND)
-                            audioManager.adjustStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_SAME,
-                                AudioManager.FLAG_SHOW_UI
-                            )
-                        }
-
-                        if (soundUpValue != null && soundUpValue != "") {
-                            //Up
-                            tvRef.child(SOUND_UP).setValue("")
-                            audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND)
-                            audioManager.adjustStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_SAME,
-                                AudioManager.FLAG_SHOW_UI
-                            )
-                        }
+                    if (soundUpValue != null && soundUpValue != "") {
+                        //Up
+                        tvRef.child(SOUND_UP).setValue("")
+                        audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND)
+                        audioManager.adjustStreamVolume(
+                            AudioManager.STREAM_MUSIC,
+                            AudioManager.ADJUST_SAME,
+                            AudioManager.FLAG_SHOW_UI
+                        )
                     }
                 }
             } else {
@@ -186,7 +236,7 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                 val seekValue = dataSnapshot.child(SEEK).value?.toString()
                 val soundUpValue = dataSnapshot.child(SOUND_UP).value?.toString()
                 val soundDownValue = dataSnapshot.child(Sound_Down).value?.toString()
-                var url: String? = null
+                var url: String?
 
                 @SuppressLint("StaticFieldLeak") val mExtractor =
                     object : YouTubeExtractor(this@PlayerActivity) {
@@ -211,6 +261,10 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                                 youtubeLinks.add(it.value as String)
                             }
 
+                            if (listPositionValue != null) {
+                                listPosition = listPositionValue
+                            }
+
                             if (listPosition != null && youtubeLinks.size > 0) {
                                 mExtractor.extract(youtubeLinks[listPosition!!], true, true)
                                 val sparseArray = mExtractor.get()
@@ -223,23 +277,35 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
                                     if (playValue != null && playValue == "1") {
                                         if (mUrl.equals(url)) {
-                                            if (player?.playWhenReady != true) {
-                                                if (positionBeforePause != null) {
-                                                    player?.playWhenReady = true
-                                                    player?.seekTo(positionBeforePause!!)
-                                                } else {
-                                                    mUrl = url
-                                                    play(mUrl!!)
+                                            if (isExo) {
+                                                if (player?.playWhenReady != true) {
+                                                    if (positionBeforePauseExo != null) {
+                                                        player?.playWhenReady = true
+                                                        player?.seekTo(positionBeforePauseExo!!)
+                                                    } else {
+                                                        mUrl = url
+                                                        play(mUrl!!)
+                                                    }
+                                                }
+                                            } else {
+                                                if (mYouTubePlayerTracker?.state != PlayerConstants.PlayerState.PLAYING) {
+                                                    if (positionBeforePauseYoutube != null) {
+                                                        mYouTubePlayer!!.play()
+                                                        mYouTubePlayer?.seekTo(positionBeforePauseYoutube!!)
+                                                    } else {
+                                                        mUrl = url
+                                                        //run directly on youtube player
+                                                        playWithYoutube(mUrl!!)
+                                                    }
                                                 }
                                             }
+
                                         } else {
-                                            //url changed
-                                            positionBeforePause = null
+                                            //url changed run on exo first
+                                            positionBeforePauseExo = null
                                             mUrl = url
                                             play(mUrl!!)
                                         }
-
-
                                     } else if (playValue != null && playValue == "0") {
                                         pause()
                                     } else {
@@ -264,37 +330,34 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                                     }
 
 
-
-                                    if (player != null) {
-
-                                        if (soundDownValue != null && soundDownValue != "") {
-                                            //Down
-                                            tvRef.child(Sound_Down).setValue("")
-                                            audioManager.adjustVolume(
-                                                AudioManager.ADJUST_LOWER,
-                                                AudioManager.FLAG_PLAY_SOUND
-                                            )
-                                            audioManager.adjustStreamVolume(
-                                                AudioManager.STREAM_MUSIC,
-                                                AudioManager.ADJUST_SAME,
-                                                AudioManager.FLAG_SHOW_UI
-                                            );
-                                        }
-
-                                        if (soundUpValue != null && soundUpValue != "") {
-                                            //Up
-                                            tvRef.child(SOUND_UP).setValue("")
-                                            audioManager.adjustVolume(
-                                                AudioManager.ADJUST_RAISE,
-                                                AudioManager.FLAG_PLAY_SOUND
-                                            )
-                                            audioManager.adjustStreamVolume(
-                                                AudioManager.STREAM_MUSIC,
-                                                AudioManager.ADJUST_SAME,
-                                                AudioManager.FLAG_SHOW_UI
-                                            );
-                                        }
+                                    if (soundDownValue != null && soundDownValue != "") {
+                                        //Down
+                                        tvRef.child(Sound_Down).setValue("")
+                                        audioManager.adjustVolume(
+                                            AudioManager.ADJUST_LOWER,
+                                            AudioManager.FLAG_PLAY_SOUND
+                                        )
+                                        audioManager.adjustStreamVolume(
+                                            AudioManager.STREAM_MUSIC,
+                                            AudioManager.ADJUST_SAME,
+                                            AudioManager.FLAG_SHOW_UI
+                                        )
                                     }
+
+                                    if (soundUpValue != null && soundUpValue != "") {
+                                        //Up
+                                        tvRef.child(SOUND_UP).setValue("")
+                                        audioManager.adjustVolume(
+                                            AudioManager.ADJUST_RAISE,
+                                            AudioManager.FLAG_PLAY_SOUND
+                                        )
+                                        audioManager.adjustStreamVolume(
+                                            AudioManager.STREAM_MUSIC,
+                                            AudioManager.ADJUST_SAME,
+                                            AudioManager.FLAG_SHOW_UI
+                                        )
+                                    }
+
                                 } else {
                                     toast("Error Casting this content")
                                 }
@@ -304,71 +367,109 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                 } else {
                     if (listPosition == listPositionValue) {
 
-                        if (playValue != null && playValue == "1") {
-                            if (player?.playWhenReady != true) {
-                                if (positionBeforePause != null) {
-                                    player?.playWhenReady = true
-                                    player?.seekTo(positionBeforePause!!)
+                        if (isExo) {
+                            if (playValue != null && playValue == "1") {
+                                if (player?.playWhenReady != true) {
+                                    if (positionBeforePauseExo != null) {
+                                        player?.playWhenReady = true
+                                        player?.seekTo(positionBeforePauseExo!!)
+                                    }
+                                }
+                            } else if (playValue != null && playValue == "0") {
+                                pause()
+                            } else {
+
+                            }
+
+
+                            if (player != null) {
+                                if (seekValue != null && seekValue != "") {
+                                    player?.seekTo(seekValue.toLong())
+                                    tvRef.child(SEEK).setValue("")
+                                }
+
+                                if (seekUpValue != null && seekUpValue != "") {
+                                    player?.seekTo(player?.currentPosition!!.plus(10000))
+                                    tvRef.child(SEEK_UP).setValue("")
+                                }
+
+                                if (seekDownValue != null && seekDownValue != "") {
+                                    player?.seekTo(player?.currentPosition!!.minus(10000))
+                                    tvRef.child(SEEK_DOWN).setValue("")
                                 }
                             }
-                        } else if (playValue != null && playValue == "0") {
-                            pause()
+
                         } else {
 
+                            if (playValue != null && playValue == "1") {
+                                if (mYouTubePlayerTracker!!.state != PlayerConstants.PlayerState.PLAYING) {
+                                    if (positionBeforePauseYoutube != null) {
+                                        mYouTubePlayer?.play()
+                                        mYouTubePlayer?.seekTo(positionBeforePauseYoutube!!)
+                                    }
+                                }
+                            } else if (playValue != null && playValue == "0") {
+                                pause()
+                            } else {
+
+                            }
+
+                            if (mYouTubePlayer != null) {
+                                if (seekValue != null && seekValue != "") {
+                                    // 0 is default till add youtube player on client app
+                                    mYouTubePlayer?.seekTo(seekValue.toFloat())
+                                    tvRef.child(SEEK).setValue("")
+                                }
+
+                                if (seekUpValue != null && seekUpValue != "") {
+                                    mYouTubePlayer?.seekTo(mYouTubePlayerTracker!!.currentSecond.plus(10))
+                                    tvRef.child(SEEK_UP).setValue("")
+                                }
+
+                                if (seekDownValue != null && seekDownValue != "") {
+                                    mYouTubePlayer?.seekTo(mYouTubePlayerTracker!!.currentSecond.minus(10))
+                                    tvRef.child(SEEK_DOWN).setValue("")
+                                }
+                            }
+
                         }
-                        if (player != null) {
-                            if (seekValue != null && seekValue != "") {
-                                player?.seekTo(seekValue.toLong())
-                                tvRef.child(SEEK).setValue("")
-                            }
 
-                            if (seekUpValue != null && seekUpValue != "") {
-                                player?.seekTo(player?.currentPosition!!.plus(10000))
-                                tvRef.child(SEEK_UP).setValue("")
-                            }
 
-                            if (seekDownValue != null && seekDownValue != "") {
-                                player?.seekTo(player?.currentPosition!!.minus(10000))
-                                tvRef.child(SEEK_DOWN).setValue("")
-                            }
+                        if (soundDownValue != null && soundDownValue != "") {
+                            //Down
+                            tvRef.child(Sound_Down).setValue("")
+                            audioManager.adjustVolume(
+                                AudioManager.ADJUST_LOWER,
+                                AudioManager.FLAG_PLAY_SOUND
+                            )
+                            audioManager.adjustStreamVolume(
+                                AudioManager.STREAM_MUSIC,
+                                AudioManager.ADJUST_SAME,
+                                AudioManager.FLAG_SHOW_UI
+                            )
                         }
 
-                        if (player != null) {
-
-                            if (soundDownValue != null && soundDownValue != "") {
-                                //Down
-                                tvRef.child(Sound_Down).setValue("")
-                                audioManager.adjustVolume(
-                                    AudioManager.ADJUST_LOWER,
-                                    AudioManager.FLAG_PLAY_SOUND
-                                )
-                                audioManager.adjustStreamVolume(
-                                    AudioManager.STREAM_MUSIC,
-                                    AudioManager.ADJUST_SAME,
-                                    AudioManager.FLAG_SHOW_UI
-                                );
-                            }
-
-                            if (soundUpValue != null && soundUpValue != "") {
-                                //Up
-                                tvRef.child(SOUND_UP).setValue("")
-                                audioManager.adjustVolume(
-                                    AudioManager.ADJUST_RAISE,
-                                    AudioManager.FLAG_PLAY_SOUND
-                                )
-                                audioManager.adjustStreamVolume(
-                                    AudioManager.STREAM_MUSIC,
-                                    AudioManager.ADJUST_SAME,
-                                    AudioManager.FLAG_SHOW_UI
-                                );
-                            }
+                        if (soundUpValue != null && soundUpValue != "") {
+                            //Up
+                            tvRef.child(SOUND_UP).setValue("")
+                            audioManager.adjustVolume(
+                                AudioManager.ADJUST_RAISE,
+                                AudioManager.FLAG_PLAY_SOUND
+                            )
+                            audioManager.adjustStreamVolume(
+                                AudioManager.STREAM_MUSIC,
+                                AudioManager.ADJUST_SAME,
+                                AudioManager.FLAG_SHOW_UI
+                            )
                         }
+
                     } else {
                         if (listPositionValue != null) {
                             listPosition = listPositionValue
                             if (listPosition!! < youtubeLinks.size) {
-                                tvRef.child(LIST_POSITION).setValue(listPosition)
-                                positionBeforePause = null
+//                                tvRef.child(LIST_POSITION).setValue(listPosition)
+                                positionBeforePauseExo = null
+                                positionBeforePauseYoutube = null
                                 saveVideoImageToFireBase(youtubeLinks[listPosition!!])
                                 extractYoutubeUrl(youtubeLinks[listPosition!!])
                             } else {
@@ -378,6 +479,29 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                     }
                 }
             }
+        }
+    }
+
+    private fun extractYoutubeLink(mUrl: String) {
+        @SuppressLint("StaticFieldLeak") val mExtractor =
+            object : YouTubeExtractor(this@PlayerActivity) {
+                override fun onExtractionComplete(
+                    sparseArray: SparseArray<YtFile>?,
+                    videoMeta: VideoMeta
+                ) {
+
+                }
+            }
+        mExtractor.extract(mUrl, true, true)
+        val sparseArray = mExtractor.get()
+
+        if (sparseArray != null) {
+            // Initialize an array of colors
+            val item = sparseArray.valueAt(0) as YtFile
+            val singleVideoUrl = item.url
+
+            play(singleVideoUrl)
+
         }
     }
 
@@ -419,6 +543,13 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
     fun play(url: String) {
 
+        pauseYoutube()
+
+        isExo = true
+
+        video_view.visibility = View.VISIBLE
+        youtubePlayer.visibility = View.GONE
+
         val videoUri = Uri.parse(url)
 
         Log.i(TAG, "Url to play : $videoUri")
@@ -429,45 +560,85 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
 
         player?.playWhenReady = true
 
-        if (positionBeforePause != null) {
-            player?.seekTo(positionBeforePause!!)
+        if (positionBeforePauseExo != null) {
+            player?.seekTo(positionBeforePauseExo!!)
+        }
+    }
+
+    private fun pauseYoutube() {
+        if (mYouTubePlayer != null && mYouTubePlayerTracker != null) {
+            positionBeforePauseYoutube = mYouTubePlayerTracker!!.currentSecond
+            mYouTubePlayer?.pause()
         }
     }
 
     override fun onPause() {
         super.onPause()
-        if (player != null) {
-            player?.playWhenReady = false
+        if (isExo) {
+            if (player != null) {
+                player?.playWhenReady = false
+            }
+        } else {
+            if (mYouTubePlayer != null) {
+                mYouTubePlayer!!.pause()
+            }
         }
+
     }
 
     override fun onStop() {
         super.onStop()
-        if (player != null) {
-            player?.playWhenReady = false
+        if (isExo) {
+            if (player != null) {
+                player?.playWhenReady = false
+            }
+        } else {
+            if (mYouTubePlayer != null) {
+                mYouTubePlayer!!.pause()
+            }
         }
     }
 
     override fun onResume() {
         Log.d(TAG, "onResume() was called")
-        if (player != null) {
-            player?.playWhenReady = true
+        if (isExo) {
+            if (player != null) {
+                player?.playWhenReady = true
+            }
+        } else {
+            if (mYouTubePlayer != null) {
+                mYouTubePlayer!!.play()
+            }
         }
 
         super.onResume()
     }
 
     fun pause() {
-        positionBeforePause = player?.currentPosition!!
+        positionBeforePauseExo = player?.currentPosition!!
         player?.playWhenReady = false
+        if (mYouTubePlayer != null && mYouTubePlayerTracker != null) {
+            positionBeforePauseYoutube = mYouTubePlayerTracker!!.currentSecond
+            mYouTubePlayer?.pause()
+        }
     }
 
+
     private fun release() {
-        if (player != null) {
-            player?.removeListener(this)
-            player?.removeVideoListener(this)
-            player?.release()
-            player = null
+        if (isExo) {
+            if (player != null) {
+                positionBeforePauseExo = 0L
+                player?.removeListener(this)
+                player?.removeVideoListener(this)
+                player?.release()
+                player = null
+            }
+        } else {
+            if (mYouTubePlayer != null) {
+                positionBeforePauseYoutube = 0F
+                lifecycle.removeObserver(youtubePlayer)
+                youtubePlayer.release()
+            }
         }
     }
 
@@ -501,12 +672,12 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
                 if (playType == "single") {
                     finish()
                 } else {
-                    listPosition = listPosition!! + 1
-                    if (listPosition!! < youtubeLinks.size) {
-                        tvRef.child(LIST_POSITION).setValue(listPosition)
-                        positionBeforePause = null
-                        saveVideoImageToFireBase(youtubeLinks[listPosition!!])
-                        extractYoutubeUrl(youtubeLinks[listPosition!!])
+                    val pos = listPosition!! + 1
+                    if (pos < youtubeLinks.size) {
+                        tvRef.child(LIST_POSITION).setValue(pos)
+                        positionBeforePauseExo = null
+                        saveVideoImageToFireBase(youtubeLinks[pos])
+//                        extractYoutubeUrl(youtubeLinks[pos])
                     } else {
                         finish()
                     }
@@ -529,7 +700,8 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
     }
 
     private fun extractYoutubeUrl(mYoutubeLink: String) {
-        @SuppressLint("StaticFieldLeak") val mExtractor = object : YouTubeExtractor(this) {
+        @SuppressLint("StaticFieldLeak")
+        val mExtractor = object : YouTubeExtractor(this) {
             override fun onExtractionComplete(sparseArray: SparseArray<YtFile>?, videoMeta: VideoMeta) {
                 if (sparseArray != null) {
                     // Initialize an array of colors
@@ -546,20 +718,120 @@ class PlayerActivity : AppCompatActivity(), Player.EventListener, VideoListener 
     }
 
     override fun onPlayerError(error: ExoPlaybackException?) {
-        toast(error?.message!!)
+//        toast(error?.message!!)
         if (playType == "single") {
-            finish()
+            playWithYoutube(mUrl!!)
         } else {
-            listPosition = listPosition!! + 1
-            if (listPosition!! < youtubeLinks.size) {
-                tvRef.child(LIST_POSITION).setValue(listPosition)
-                positionBeforePause = null
-                saveVideoImageToFireBase(youtubeLinks[listPosition!!])
-                extractYoutubeUrl(youtubeLinks[listPosition!!])
-            } else {
-                finish()
+            val playlistYoutubeLink = youtubeLinks[listPosition!!]
+
+            playWithYoutube(playlistYoutubeLink)
+
+
+//            //get next video on extracted list
+//            listPosition = listPosition!! + 1
+//            if (listPosition!! < youtubeLinks.size) {
+//                tvRef.child(LIST_POSITION).setValue(listPosition)
+//                positionBeforePauseExo = null
+//                saveVideoImageToFireBase(youtubeLinks[listPosition!!])
+//                extractYoutubeUrl(youtubeLinks[listPosition!!])
+//            } else {
+//                finish()
+//            }
+        }
+    }
+
+    private fun getVideoId(mUrl: String): String {
+        return mUrl.replace("https://www.youtube.com/watch?v=", "")
+    }
+
+    private fun playWithYoutube(mUrl: String) {
+
+        if (playType == "single") {
+            pause()
+        }
+
+        isExo = false
+        youtubePlayer.visibility = View.VISIBLE
+        video_view.visibility = View.GONE
+
+
+        val videoId = getVideoId(mUrl)
+        if (mYouTubePlayer != null) {
+            mYouTubePlayer!!.loadVideo(videoId, 0F)
+            mYouTubePlayerTracker = YouTubePlayerTracker()
+            mYouTubePlayer!!.addListener(mYouTubePlayerTracker!!)
+        }
+    }
+
+    private fun setUpYoutubePlayer() {
+        lifecycle.addObserver(youtubePlayer)
+
+        youtubePlayer.addYouTubePlayerListener(this)
+    }
+
+    override fun onReady(youTubePlayer: YouTubePlayer) {
+        mYouTubePlayer = youTubePlayer
+    }
+
+    override fun onStateChange(youTubePlayer: YouTubePlayer, state: PlayerConstants.PlayerState) {
+        when (state) {
+            PlayerConstants.PlayerState.UNKNOWN -> {
+            }
+            PlayerConstants.PlayerState.UNSTARTED -> {
+            }
+            PlayerConstants.PlayerState.ENDED -> {
+                if (playType == "single") {
+                    finish()
+                } else {
+                    val pos = listPosition!! + 1
+                    if (pos < youtubeLinks.size) {
+                        tvRef.child(LIST_POSITION).setValue(pos)
+                        positionBeforePauseExo = null
+                        saveVideoImageToFireBase(youtubeLinks[pos])
+//                        extractYoutubeUrl(youtubeLinks[pos])
+                    } else {
+                        finish()
+                    }
+                }
+            }
+            PlayerConstants.PlayerState.PLAYING -> {
+            }
+            PlayerConstants.PlayerState.PAUSED -> {
+            }
+            PlayerConstants.PlayerState.BUFFERING -> {
+            }
+            PlayerConstants.PlayerState.VIDEO_CUED -> {
+
             }
         }
+    }
+
+    override fun onApiChange(youTubePlayer: YouTubePlayer) {
+    }
+
+    override fun onCurrentSecond(youTubePlayer: YouTubePlayer, second: Float) {
+    }
+
+    override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+        toast("error${error.name}")
+    }
+
+    override fun onPlaybackQualityChange(
+        youTubePlayer: YouTubePlayer,
+        playbackQuality: PlayerConstants.PlaybackQuality
+    ) {
+    }
+
+    override fun onPlaybackRateChange(youTubePlayer: YouTubePlayer, playbackRate: PlayerConstants.PlaybackRate) {
+    }
+
+    override fun onVideoDuration(youTubePlayer: YouTubePlayer, duration: Float) {
+    }
+
+    override fun onVideoId(youTubePlayer: YouTubePlayer, videoId: String) {
+    }
+
+    override fun onVideoLoadedFraction(youTubePlayer: YouTubePlayer, loadedFraction: Float) {
     }
 
 }

@@ -55,7 +55,7 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_connection)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
 //        val rotate = RotateAnimation(
 //            30f,
@@ -82,6 +82,11 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                 }
             }
         }.run()
+
+        splashView.setOnClickListener {
+            splashView.visibility = View.GONE
+            clicked = true
+        }
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
@@ -106,8 +111,6 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                 timeTv.text = timeString
                 dateTv.text = dateString
 
-
-
                 mClockHandler.postDelayed(this, 1000)
             }
         }.run()
@@ -121,8 +124,6 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
         val mImagesHandler = Handler(GalaxyApplication.instance.mainLooper)
         object : Runnable {
             override fun run() {
-
-
                 Glide.with(this@ConnectionActivity).load(images[index]).into(background)
                 index++
                 if (index >= 4)
@@ -131,7 +132,6 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                 mImagesHandler.postDelayed(this, 20000)
             }
         }.run()
-
     }
 
     override fun onResume() {
@@ -187,7 +187,7 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                                 if (connectedValue != null && connectedValue == "1") {
                                     tvRef.removeEventListener(this)
                                     startActivity(Intent(this@ConnectionActivity, PlayerActivity::class.java))
-                                    toast("Connected to mobile Waiting for actions")
+                                    toast("Connected!!, Waiting For Actions.")
                                 }
                             }
                         }
