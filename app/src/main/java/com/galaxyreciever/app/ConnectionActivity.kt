@@ -1,8 +1,11 @@
 package com.galaxyreciever.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -11,6 +14,9 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProviders
 import com.blankj.utilcode.util.DeviceUtils
 import com.bumptech.glide.Glide
 import com.bumptech.glide.Priority
@@ -20,12 +26,16 @@ import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.video.VideoListener
 import com.google.firebase.database.*
 import kotlinx.android.synthetic.main.activity_connection.*
+import pub.devrel.easypermissions.AfterPermissionGranted
+import pub.devrel.easypermissions.EasyPermissions
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.system.exitProcess
 
 const val PLAY = "play"
 const val URL = "url"
@@ -46,7 +56,10 @@ const val DISCONNECTED_ACTION = "0"
 
 const val TAG = "GalaxyApp"
 
+const val RC_WRITE_EXTERNAL_STORAGE = 1
 class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListener {
+
+    private lateinit var viewModel: LauncherViewModel
 
     lateinit var tvRef: DatabaseReference
     lateinit var valueListener: ValueEventListener
@@ -56,6 +69,29 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_connection)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        viewModel = ViewModelProviders.of(this).get(LauncherViewModel::class.java)
+        viewModel.liveData.observe(this, Observer<LauncherState?> { state ->
+            when {
+                state!!.showUpdateDialog!! -> {
+                    updateView.visibility = View.VISIBLE
+                    progressText.visibility = View.VISIBLE
+                    progressText.text = "Outdated version installed.\nA newer version is available. You have to download and install it before continue to use app."
+                    downloadApk()
+                }
+                state.isDownloading!! -> {
+                    updateView.visibility = View.VISIBLE
+                    progressText.visibility = View.VISIBLE
+                    progressText.text = "Downloading Update " + state.progress.toString() + "%"
+                }
+                state.onSuccess!! -> installApk(state.updateFile!!)
+                state.onError!! -> {
+
+                }
+                state.startApp!! -> updateView.visibility = View.GONE
+            }
+        })
+
 
 //        val rotate = RotateAnimation(
 //            30f,
@@ -86,6 +122,40 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
         splashView.setOnClickListener {
             splashView.visibility = View.GONE
             clicked = true
+        }
+    }
+
+    private fun installApk(file: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val data = FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID + ".provider", file)
+            grantUriPermission(this.packageName, data, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val intent = Intent(Intent.ACTION_VIEW)
+                .setDataAndType(data, "application/vnd.android.package-archive")
+
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(intent)
+            finish()
+
+        } else {
+            val uri = Uri.parse("file://" + file.getAbsolutePath())
+            val intent = Intent(Intent.ACTION_INSTALL_PACKAGE)
+            intent.setDataAndType(uri, UpdateUtility().APK_MIME_TYPE)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(intent)
+            exitProcess(0)
+        }
+    }
+
+    @AfterPermissionGranted(RC_WRITE_EXTERNAL_STORAGE)
+    private fun downloadApk() {
+        val perms = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        if (EasyPermissions.hasPermissions(this, *perms)) {
+            viewModel.download()
+        } else {
+            EasyPermissions.requestPermissions(
+                this, "",
+                RC_WRITE_EXTERNAL_STORAGE, *perms
+            )
         }
     }
 
@@ -222,6 +292,11 @@ class ConnectionActivity : AppCompatActivity(), Player.EventListener, VideoListe
                 or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 }
 

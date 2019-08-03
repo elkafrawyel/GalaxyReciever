@@ -32,16 +32,15 @@
                 android:id="@+id/messageTv"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="64dp"
                 android:gravity="center"
                 android:padding="8dp"
                 android:text="Type code below to connect to this TV device."
                 android:textAppearance="?attr/textAppearanceHeadline5"
                 android:textColor="@android:color/white"
-                android:layout_marginBottom="64dp"
                 app:layout_constraintBottom_toBottomOf="@id/logo"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                />
+                app:layout_constraintStart_toStartOf="parent" />
 
             <TextView
                 android:id="@+id/codeTv"
@@ -74,12 +73,12 @@
         android:id="@+id/splashView"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="@android:color/black"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:background="@android:color/black">
+        app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
             android:id="@+id/background"
@@ -91,28 +90,60 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:layout_gravity="bottom|right"
             android:layout_margin="64dp"
-            >
+            android:orientation="vertical">
+
             <TextView
                 android:id="@+id/timeTv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@android:color/white"
                 android:layout_gravity="center"
                 android:gravity="center"
-                android:textAppearance="?attr/textAppearanceHeadline3" />
+                android:textAppearance="?attr/textAppearanceHeadline3"
+                android:textColor="@android:color/white" />
 
             <TextView
                 android:id="@+id/dateTv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@android:color/white"
                 android:layout_gravity="center"
                 android:gravity="center"
-                android:textAppearance="?attr/textAppearanceHeadline5" />
+                android:textAppearance="?attr/textAppearanceHeadline5"
+                android:textColor="@android:color/white" />
         </LinearLayout>
     </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/updateView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:src="@drawable/logo" />
+
+        <TextView
+            android:id="@+id/progressText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="Downloading Update..."
+            android:textAppearance="?attr/textAppearanceHeadline5"
+            android:textColor="@android:color/white"
+            />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

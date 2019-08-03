@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.util.concurrent.TimeUnit
 
 class GalaxyApplication : Application() {
 
@@ -30,8 +31,11 @@ class GalaxyApplication : Application() {
                 level = HttpLoggingInterceptor.Level.BODY
             }
         }
+
         private fun getOkHttpClient(): OkHttpClient {
             return OkHttpClient.Builder()
+                .readTimeout(60,TimeUnit.SECONDS)
+                .writeTimeout(60,TimeUnit.SECONDS)
                 .addInterceptor(getLoggingInterceptor())
                 .build()
         }
@@ -40,7 +44,7 @@ class GalaxyApplication : Application() {
 
             val retrofit = Retrofit.Builder()
                 .addConverterFactory(MoshiConverterFactory.create())
-                .baseUrl("http://newvodpro.hmaserv.online/galaxy/")
+                .baseUrl("https://www.galaxygcast.com/")
                 .client(getOkHttpClient())
                 .build()
 
